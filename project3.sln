@@ -1,25 +1,146 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.4.33205.214
-MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "project3", "project3\project3.csproj", "{B101F7D1-67F2-4E90-BD2E-FB90F13E5BBB}"
-EndProject
-Global
-	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Any CPU = Debug|Any CPU
-		Release|Any CPU = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{B101F7D1-67F2-4E90-BD2E-FB90F13E5BBB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B101F7D1-67F2-4E90-BD2E-FB90F13E5BBB}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B101F7D1-67F2-4E90-BD2E-FB90F13E5BBB}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B101F7D1-67F2-4E90-BD2E-FB90F13E5BBB}.Release|Any CPU.Build.0 = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {CA856BF3-C76A-4856-8967-55BD259DA34C}
-	EndGlobalSection
-EndGlobal
+using System;
+using System.Linq;
+
+namespace PolynomialInterpolation
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Console.WriteLine("Enter the number of points:");
+            int n = int.Parse(Console.ReadLine());
+
+            double[] x = new double[n];
+            double[] y = new double[n];
+
+            Console.WriteLine("Enter the points in the format 'x y':");
+            for (int i = 0; i < n; i++)
+            {
+                string[] inputs = Console.ReadLine().Split(' ');
+                x[i] = double.Parse(inputs[0]);
+                y[i] = double.Parse(inputs[1]);
+            }
+
+            double[,] vandermondeMatrix = new double[n, n];
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = 0; j < n; j++)
+                {
+                    vandermondeMatrix[i, j] = Math.Pow(x[i], j);
+                }
+            }
+
+            double[] coefficients = GaussianElimination(vandermondeMatrix, y);
+
+            Console.WriteLine("\nThe order of the interpolation polynomial is: " + (coefficients.Length - 1));
+            Console.Write("The interpolation polynomial is: ");
+            for (int i = 0; i < coefficients.Length; i++)
+            {
+                Console.Write(coefficients[i] + "x^" + i + " ");
+            }
+
+            Console.WriteLine("\n\nThe value of the polynomial at -1 is: " + EvaluatePolynomial(coefficients, -1));
+            Console.WriteLine("The value of the polynomial at 0 is: " + EvaluatePolynomial(coefficients, 0));
+            Console.WriteLine("The value of the polynomial at 1 is: " + EvaluatePolynomial(coefficients, 1));
+
+            double[] derivativeCoefficients = DifferentiatePolynomial(coefficients);
+            Console.WriteLine("\nThe derivative of the interpolation polynomial is: ");
+            for (int i = 0; i < derivativeCoefficients.Length; i++)
+            {
+                Console.Write(derivativeCoefficients[i] + "x^" + i + " ");
+            }
+
+            Console.WriteLine("\n\nEnter an initial guess for finding a root of the polynomial:");
+            double initialGuess = double.Parse(Console.ReadLine());
+            double root = FindRoot(coefficients, derivativeCoefficients, initialGuess);
+            Console.WriteLine("\nA root of the polynomial is: " + root);
+        }
+
+        static double[] GaussianElimination(double[,] matrix, double[] vector)
+        {
+            int n = vector.Length;
+            for (int i = 0; i < n; i++)
+            {
+                int maxRow = i;
+                for (int j = i + 1; j < n; j++)
+                {
+                    if (Math.Abs(matrix[j, i]) > Math.Abs(matrix[maxRow, i]))
+                    {
+                            maxRow = j;
+                        }
+                }
+
+                for (int k = i; k < n; k++)
+                {
+                    double temp = matrix[maxRow, k];
+                    matrix[maxRow, k] = matrix[i, k];
+                    matrix[i, k] = temp;
+                }
+
+                double temp1 = vector[maxRow];
+                vector[maxRow] = vector[i];
+                vector[i] = temp1;
+
+                for (int j = i + 1; j < n; j++)
+                {
+                    double factor = matrix[j, i] / matrix[i, i];
+                    vector[j] -= factor * vector[i];
+                    for (int k = i; k < n; k++)
+                    {
+                        matrix[j, k] -= factor * matrix[i, k];
+                    }
+                }
+            }
+
+            double[] solution = new double[n];
+            for (int i = n - 1; i >= 0; i--)
+            {
+                double sum = 0.0;
+                for (int j = i + 1; j < n; j++)
+                {
+                    sum += matrix[i, j] * solution[j];
+                }
+                solution[i] = (vector[i] - sum) / matrix[i, i];
+            }
+
+            return solution;
+        }
+
+        static double EvaluatePolynomial(double[] coefficients, double x)
+        {
+            double result = 0;
+            for (int i = 0; i < coefficients.Length; i++)
+            {
+                result += coefficients[i] * Math.Pow(x, i);
+            }
+            return result;
+        }
+
+        static double[] DifferentiatePolynomial(double[] coefficients)
+        {
+            int n = coefficients.Length - 1;
+            double[] derivativeCoefficients = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                derivativeCoefficients[i] = (i + 1) * coefficients[i + 1];
+            }
+            return derivativeCoefficients;
+        }
+
+        static double FindRoot(double[] coefficients, double[] derivativeCoefficients, double x)
+        {
+            double error = double.MaxValue;
+            while (error > 1e-10)
+            {
+                double fx = EvaluatePolynomial(coefficients, x);
+                double fxPrime = EvaluatePolynomial(derivativeCoefficients, x);
+                double x1 = x - fx / fxPrime;
+                error = Math.Abs(x1 - x);
+                x = x1;
+            }
+            return x;
+        }
+
+    }
+}
+
